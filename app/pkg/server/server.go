@@ -129,44 +129,46 @@ func (s *Server) Listen(port int) error {
 	for {
 		conn, err := l.Accept()
 
-		if err != nil {
-			fmt.Println("Error accepting connection: ", err.Error())
+		go func() {
+			if err != nil {
+				fmt.Println("Error accepting connection: ", err.Error())
+				conn.Close()
+				return
+			}
+
+			reqRaw, err := s.handleConnection(conn)
+
+			if err != nil {
+				conn.Close()
+				return
+			}
+
+			req, err := http.ParseReq(reqRaw)
+
+			if err != nil {
+				fmt.Println("Error parsing request: ", err.Error())
+				conn.Close()
+				return
+			}
+
+			handler, reqPathParams, ok := s.router(req.Path)
+
+			if !ok {
+				handler = *s.defaultHandler
+				req.PathParams = nil
+			} else {
+				req.PathParams = reqPathParams
+			}
+
+			res := handler(&req)
+
+			err = s.sendResponse(conn, *res)
+
+			if err != nil {
+				fmt.Println("Error handling response: ", err.Error())
+			}
+
 			conn.Close()
-			continue
-		}
-
-		reqRaw, err := s.handleConnection(conn)
-
-		if err != nil {
-			conn.Close()
-			continue
-		}
-
-		req, err := http.ParseReq(reqRaw)
-
-		if err != nil {
-			fmt.Println("Error parsing request: ", err.Error())
-			conn.Close()
-			continue
-		}
-
-		handler, reqPathParams, ok := s.router(req.Path)
-
-		if !ok {
-			handler = *s.defaultHandler
-			req.PathParams = nil
-		} else {
-			req.PathParams = reqPathParams
-		}
-
-		res := handler(&req)
-
-		err = s.sendResponse(conn, *res)
-
-		if err != nil {
-			fmt.Println("Error handling response: ", err.Error())
-		}
-
-		conn.Close()
+		}()
 	}
 }

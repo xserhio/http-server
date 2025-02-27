@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/codecrafters-io/http-server-starter-go/app/pkg/http"
-	server "github.com/codecrafters-io/http-server-starter-go/app/pkg/server"
+	"github.com/codecrafters-io/http-server-starter-go/app/pkg/server"
 	"strconv"
 )
 
