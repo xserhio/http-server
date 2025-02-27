@@ -26,6 +26,7 @@ func parseHeaders(headersRaw string) Headers {
 		}
 
 		name := strings.TrimSpace(parts[0])
+		name = strings.ToLower(name)
 		value := strings.TrimSpace(parts[1])
 
 		if len(name) > 15 {

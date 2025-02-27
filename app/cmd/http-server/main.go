@@ -17,6 +17,26 @@ func main() {
 		}
 	})
 
+	s.RegisterHandler("/user-agent", func(req *http.Request) *http.Response {
+		userAgent := req.Headers["user-agent"]
+
+		if userAgent == "" {
+			return &http.Response{
+				Code:    400,
+				Headers: nil,
+				Body:    nil,
+			}
+		}
+
+		contentLength := len(userAgent)
+
+		return &http.Response{
+			Code:    200,
+			Body:    []byte(userAgent),
+			Headers: http.Headers{"Content-Type": "text/plain", "Content-Length": strconv.Itoa(contentLength)},
+		}
+	})
+
 	s.RegisterHandler("/echo/:str", func(req *http.Request) *http.Response {
 		str, ok := req.PathParams["str"]
 
