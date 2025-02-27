@@ -16,7 +16,7 @@ func serializeHeaders(headers Headers) string {
 		resStr += fmt.Sprintf("%s: %s\r\n", h, v)
 	}
 
-	return resStr
+	return resStr + "\r\n"
 }
 
 func SerializeRes(res Response) ([]byte, error) {

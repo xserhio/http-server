@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/codecrafters-io/http-server-starter-go/app/pkg/http"
 	server "github.com/codecrafters-io/http-server-starter-go/app/pkg/server"
+	"strconv"
 )
 
 func main() {
@@ -13,6 +14,22 @@ func main() {
 			Code:    200,
 			Body:    nil,
 			Headers: nil,
+		}
+	})
+
+	s.RegisterHandler("/echo/:str", func(req *http.Request) *http.Response {
+		str, ok := req.PathParams["str"]
+
+		if !ok {
+			str = ""
+		}
+
+		contentLength := len(str)
+
+		return &http.Response{
+			Code:    200,
+			Body:    []byte(str),
+			Headers: http.Headers{"Content-Type": "text/plain", "Content-Length": strconv.Itoa(contentLength)},
 		}
 	})
 

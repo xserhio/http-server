@@ -5,6 +5,7 @@ import (
 	"github.com/codecrafters-io/http-server-starter-go/app/pkg/http"
 	"io"
 	"net"
+	"strings"
 )
 
 type Handler func(req *http.Request) *http.Response
@@ -26,6 +27,64 @@ func (s *Server) RegisterDefaultHandler(handler Handler) {
 
 func (s *Server) RegisterHandler(route string, handler Handler) {
 	(*s.handlers)[route] = handler
+}
+
+func (s *Server) router(reqPath string) (Handler, http.RoutePathParams, bool) {
+	reqPathParts := strings.Split(reqPath, "/")
+
+	var routeVariants []string
+
+	for route, _ := range *s.handlers {
+		routeParts := strings.Split(route, "/")
+
+		if len(routeParts) == len(reqPathParts) {
+			routeVariants = append(routeVariants, route)
+		}
+	}
+
+	if len(routeVariants) == 0 {
+		return nil, http.RoutePathParams{}, false
+	}
+
+	var route string
+	routePathParams := make(http.RoutePathParams)
+
+	for _, routeVariant := range routeVariants {
+		i := 0
+
+		routeVariantParts := strings.Split(routeVariant, "/")
+
+		for ; i < len(reqPathParts); i++ {
+			reqPathPart := reqPathParts[i]
+			routeVariantPart := routeVariantParts[i]
+
+			if reqPathPart == routeVariantPart {
+				continue
+			}
+
+			isRouteParam := strings.HasPrefix(routeVariantPart, ":")
+
+			if isRouteParam {
+				routeParamName := strings.TrimPrefix(routeVariantPart, ":")
+				routePathParams[routeParamName] = reqPathPart
+			} else {
+				break
+			}
+		}
+
+		if i == len(reqPathParts) {
+			route = routeVariant
+			break
+		}
+	}
+
+	if route == "" {
+		return nil, http.RoutePathParams{}, false
+	}
+
+	handler, ok := (*s.handlers)[route]
+
+	return handler, routePathParams, ok
 }
 
 func (s *Server) handleConnection(conn net.Conn) ([]byte, error) {
@@ -72,6 +131,7 @@ func (s *Server) Listen(port int) error {
 
 		if err != nil {
 			fmt.Println("Error accepting connection: ", err.Error())
+			conn.Close()
 			continue
 		}
 
@@ -82,7 +142,7 @@ func (s *Server) Listen(port int) error {
 			continue
 		}
 
-		req, err := http.Parse(reqRaw)
+		req, err := http.ParseReq(reqRaw)
 
 		if err != nil {
 			fmt.Println("Error parsing request: ", err.Error())
@@ -90,10 +150,13 @@ func (s *Server) Listen(port int) error {
 			continue
 		}
 
-		handler, ok := (*s.handlers)[req.Path]
+		handler, reqPathParams, ok := s.router(req.Path)
 
 		if !ok {
 			handler = *s.defaultHandler
+			req.PathParams = nil
+		} else {
+			req.PathParams = reqPathParams
 		}
 
 		res := handler(&req)
@@ -104,6 +167,6 @@ func (s *Server) Listen(port int) error {
 			fmt.Println("Error handling response: ", err.Error())
 		}
 
-		conn = nil
+		conn.Close()
 	}
 }

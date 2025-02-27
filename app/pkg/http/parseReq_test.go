@@ -23,16 +23,17 @@ func TestReq(t *testing.T) {
 		expectedErr bool
 	}{
 		{"Test parse req 1", "GET / HTTP/1.1\r\nHost: test.com\r\nUser-Agent: curl/7.64.1\r\nAccept: */*\r\n", Request{
-			Headers:  testHeaders,
-			Path:     "/",
-			Protocol: "HTTP/1.1",
-			Method:   "GET",
+			Headers:    testHeaders,
+			Path:       "/",
+			Protocol:   "HTTP/1.1",
+			Method:     "GET",
+			PathParams: RoutePathParams{},
 		}, false},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := Parse([]byte(test.arg))
+			got, err := ParseReq([]byte(test.arg))
 
 			if (err != nil) != test.expectedErr {
 				t.Errorf("Parse() error = %v, is error expected %v", err, test.expectedErr)

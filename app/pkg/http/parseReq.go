@@ -15,7 +15,7 @@ func parseReqLine(reqLine string) (string, string, string, error) {
 	return parts[0], parts[1], parts[2], nil
 }
 
-func Parse(reqRaw []byte) (Request, error) {
+func ParseReq(reqRaw []byte) (Request, error) {
 	reqParts := strings.Split(string(reqRaw), "\r\n")
 
 	if len(reqParts) < 2 {
@@ -35,9 +35,10 @@ func Parse(reqRaw []byte) (Request, error) {
 	headers := parseHeaders(strings.Join(headersRaw, "\r\n"))
 
 	return Request{
-		Method:   method,
-		Protocol: protocol,
-		Path:     target,
-		Headers:  headers,
+		Method:     method,
+		Protocol:   protocol,
+		Path:       target,
+		Headers:    headers,
+		PathParams: RoutePathParams{},
 	}, nil
 }
