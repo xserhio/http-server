@@ -99,13 +99,13 @@ func (s *Server) sendResponse(conn *net.Conn, res *http.Response, req *http.Requ
 	}
 
 	if res.FilePath == "" {
+		err = compressResponse(req, res)
+
+		if err != nil {
+			s.SendErr(500, map[string]string{"error": "failed to compress response"})
+		}
+
 		res.Headers["Content-Length"] = strconv.Itoa(len(res.Body))
-	}
-
-	err = compressResponse(req, res)
-
-	if err != nil {
-		s.SendErr(500, map[string]string{"error": "failed to compress response"})
 	}
 
 	serRes, err := http.SerializeRes(*res)
