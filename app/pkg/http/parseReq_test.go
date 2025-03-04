@@ -22,11 +22,12 @@ func TestReq(t *testing.T) {
 		expected    Request
 		expectedErr bool
 	}{
-		{"Test parse req 1", "GET / HTTP/1.1\r\nHost: test.com\r\nUser-Agent: curl/7.64.1\r\nAccept: */*\r\n", Request{
+		{"Test parse req 1", "GET / HTTP/1.1\r\nHost: test.com\r\nUser-Agent: curl/7.64.1\r\nAccept: */*\r\n12345678", Request{
 			Headers:    testHeaders,
 			Path:       "/",
 			Protocol:   "HTTP/1.1",
 			Method:     "GET",
+			Body:       []byte("12345678"),
 			PathParams: RoutePathParams{},
 		}, false},
 	}

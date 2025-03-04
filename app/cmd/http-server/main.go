@@ -5,6 +5,7 @@ import (
 	"flag"
 	"github.com/codecrafters-io/http-server-starter-go/app/pkg/http"
 	"github.com/codecrafters-io/http-server-starter-go/app/pkg/server"
+	"os"
 	"path"
 	"strconv"
 )
@@ -17,7 +18,7 @@ func main() {
 
 	s := server.NewServer()
 
-	s.RegisterHandler("/", func(req *http.Request) *http.Response {
+	s.RegisterHandler("/", "GET", func(req *http.Request) *http.Response {
 		return &http.Response{
 			Code:    200,
 			Body:    nil,
@@ -25,7 +26,7 @@ func main() {
 		}
 	})
 
-	s.RegisterHandler("/user-agent", func(req *http.Request) *http.Response {
+	s.RegisterHandler("/user-agent", "GET", func(req *http.Request) *http.Response {
 		userAgent := req.Headers["user-agent"]
 
 		if userAgent == "" {
@@ -45,7 +46,7 @@ func main() {
 		}
 	})
 
-	s.RegisterHandler("/echo/:str", func(req *http.Request) *http.Response {
+	s.RegisterHandler("/echo/:str", "GET", func(req *http.Request) *http.Response {
 		str, ok := req.PathParams["str"]
 
 		if !ok {
@@ -61,7 +62,55 @@ func main() {
 		}
 	})
 
-	s.RegisterHandler("/files/:fileName", func(req *http.Request) *http.Response {
+	s.RegisterHandler("/files/:fileName", "POST", func(req *http.Request) *http.Response {
+		fileName, ok := req.PathParams["fileName"]
+
+		sendErr := func(statusCode int, errors map[string]string) *http.Response {
+			resBody, err := json.Marshal(errors)
+
+			if err != nil {
+				return &http.Response{
+					Code: 500,
+				}
+			}
+
+			return &http.Response{
+				Code:    statusCode,
+				Body:    resBody,
+				Headers: http.Headers{"Content-Type": "application/json"},
+			}
+		}
+
+		if !ok {
+			return sendErr(400, map[string]string{
+				"error": "fileName must be string",
+			})
+		}
+
+		var filePath string
+
+		if fileDir != "" {
+			filePath = path.Join(fileDir, fileName)
+		}
+
+		file, err := os.Create(filePath)
+
+		if err != nil {
+			return sendErr(500, map[string]string{"error": "failed to create file"})
+		}
+
+		_, err = file.Write(req.Body)
+
+		if err != nil {
+			return sendErr(500, map[string]string{"error": "failed to write to file"})
+		}
+
+		return &http.Response{
+			Code: 201,
+		}
+	})
+
+	s.RegisterHandler("/files/:fileName", "GET", func(req *http.Request) *http.Response {
 		fileName, ok := req.PathParams["fileName"]
 
 		if !ok {

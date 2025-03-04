@@ -40,5 +40,6 @@ func ParseReq(reqRaw []byte) (Request, error) {
 		Path:       target,
 		Headers:    headers,
 		PathParams: RoutePathParams{},
+		Body:       []byte(reqParts[len(reqParts)-1]),
 	}, nil
 }

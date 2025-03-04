@@ -1,21 +1,22 @@
 package server
 
 import (
-	"bufio"
-	"errors"
 	"fmt"
 	"github.com/codecrafters-io/http-server-starter-go/app/pkg/http"
 	"io"
 	"net"
-	"os"
-	"strconv"
-	"strings"
 )
 
 type Handler func(req *http.Request) *http.Response
 
+type HandlerData struct {
+	handler *Handler
+	method  string
+	route   string
+}
+
 type Server struct {
-	handlers       *map[string]Handler
+	handlers       []HandlerData
 	defaultHandler *Handler
 }
 
@@ -32,75 +33,17 @@ func (s *Server) internalServerError(conn *net.Conn, req *http.Request, err erro
 }
 
 func NewServer() *Server {
-	handlers := make(map[string]Handler, 10)
+	handlers := make([]HandlerData, 10)
 
-	return &Server{handlers: &handlers, defaultHandler: nil}
+	return &Server{handlers: handlers, defaultHandler: nil}
 }
 
 func (s *Server) RegisterDefaultHandler(handler Handler) {
 	(*s).defaultHandler = &handler
 }
 
-func (s *Server) RegisterHandler(route string, handler Handler) {
-	(*s.handlers)[route] = handler
-}
-
-func (s *Server) router(reqPath string) (Handler, http.RoutePathParams, bool) {
-	reqPathParts := strings.Split(reqPath, "/")
-
-	var routeVariants []string
-
-	for route, _ := range *s.handlers {
-		routeParts := strings.Split(route, "/")
-
-		if len(routeParts) == len(reqPathParts) {
-			routeVariants = append(routeVariants, route)
-		}
-	}
-
-	if len(routeVariants) == 0 {
-		return nil, http.RoutePathParams{}, false
-	}
-
-	var route string
-	routePathParams := make(http.RoutePathParams)
-
-	for _, routeVariant := range routeVariants {
-		i := 0
-
-		routeVariantParts := strings.Split(routeVariant, "/")
-
-		for ; i < len(reqPathParts); i++ {
-			reqPathPart := reqPathParts[i]
-			routeVariantPart := routeVariantParts[i]
-
-			if reqPathPart == routeVariantPart {
-				continue
-			}
-
-			isRouteParam := strings.HasPrefix(routeVariantPart, ":")
-
-			if isRouteParam {
-				routeParamName := strings.TrimPrefix(routeVariantPart, ":")
-				routePathParams[routeParamName] = reqPathPart
-			} else {
-				break
-			}
-		}
-
-		if i == len(reqPathParts) {
-			route = routeVariant
-			break
-		}
-	}
-
-	if route == "" {
-		return nil, http.RoutePathParams{}, false
-	}
-
-	handler, ok := (*s.handlers)[route]
-
-	return handler, routePathParams, ok
+func (s *Server) RegisterHandler(route string, method string, handler Handler) {
+	s.handlers = append(s.handlers, HandlerData{handler: &handler, method: method, route: route})
 }
 
 func (s *Server) handleConnection(conn net.Conn) ([]byte, error) {
@@ -121,73 +64,6 @@ func (s *Server) handleConnection(conn net.Conn) ([]byte, error) {
 	}
 }
 
-func handleSendFile(res *http.Response) error {
-	if res.FilePath == "" {
-		return nil
-	}
-
-	f, err := os.Open(res.FilePath)
-
-	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-
-	stat, err := f.Stat()
-	if err != nil {
-		return err
-	}
-
-	bs := make([]byte, stat.Size())
-	_, err = bufio.NewReader(f).Read(bs)
-
-	if err != nil {
-		return err
-	}
-
-	res.Body = bs
-
-	res.Headers["Content-Length"] = fmt.Sprint(stat.Size())
-	res.Headers["Content-Type"] = "application/octet-stream"
-
-	return err
-}
-
-func (s *Server) sendResponse(conn *net.Conn, res *http.Response, req *http.Request) error {
-	if res.Headers == nil {
-		res.Headers = make(http.Headers, 2)
-	}
-
-	err := handleSendFile(res)
-
-	if errors.Is(err, os.ErrNotExist) {
-		res = (*s.defaultHandler)(req)
-
-		if res.Headers == nil {
-			res.Headers = make(http.Headers, 2)
-		}
-	} else if err != nil {
-		return err
-	}
-
-	if res.FilePath == "" {
-		res.Headers["Content-Length"] = strconv.Itoa(len(res.Body))
-	}
-
-	serRes, err := http.SerializeRes(*res)
-
-	if err != nil {
-		return err
-	}
-
-	_, err = (*conn).Write(serRes)
-
-	defer (*conn).Close()
-
-	return err
-}
-
 func (s *Server) handleConn(conn *net.Conn) {
 	reqRaw, err := s.handleConnection(*conn)
 
@@ -204,16 +80,16 @@ func (s *Server) handleConn(conn *net.Conn) {
 		return
 	}
 
-	handler, reqPathParams, ok := s.router(req.Path)
+	handler, reqPathParams, ok := s.router(req.Path, req.Method)
 
 	if !ok {
-		handler = *s.defaultHandler
+		handler = s.defaultHandler
 		req.PathParams = nil
 	} else {
 		req.PathParams = reqPathParams
 	}
 
-	res := handler(&req)
+	res := (*handler)(&req)
 
 	err = s.sendResponse(conn, res, &req)
 
