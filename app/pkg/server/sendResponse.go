@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 )
 
 func handleSendFile(res *http.Response) error {
@@ -45,17 +46,28 @@ func handleSendFile(res *http.Response) error {
 }
 
 func compressResponse(req *http.Request, res *http.Response) error {
-	encoding, ok := req.Headers["accept-encoding"]
+	encodingRaw, ok := req.Headers["accept-encoding"]
 
 	if !ok {
 		return nil
 	}
 
-	compressHandler := compress.GetCompressHandler(encoding)
+	var compressType string
 
-	if compressHandler == nil {
+	for _, compression := range strings.Split(encodingRaw, ", ") {
+		handler := compress.GetCompressHandler(compression)
+
+		if handler != nil {
+			compressType = compression
+			break
+		}
+	}
+
+	if compressType == "" {
 		return nil
 	}
+
+	compressHandler := compress.GetCompressHandler(compressType)
 
 	compressedBody, err := compressHandler(res.Body)
 
@@ -64,7 +76,7 @@ func compressResponse(req *http.Request, res *http.Response) error {
 	}
 
 	res.Body = compressedBody
-	res.Headers["Content-Encoding"] = encoding
+	res.Headers["Content-Encoding"] = compressType
 
 	return nil
 }
