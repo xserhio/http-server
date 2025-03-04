@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/codecrafters-io/http-server-starter-go/app/pkg/compress"
 	"github.com/codecrafters-io/http-server-starter-go/app/pkg/http"
 	"net"
 	"os"
@@ -43,6 +44,31 @@ func handleSendFile(res *http.Response) error {
 	return err
 }
 
+func compressResponse(req *http.Request, res *http.Response) error {
+	encoding, ok := req.Headers["accept-encoding"]
+
+	if !ok {
+		return nil
+	}
+
+	compressHandler := compress.GetCompressHandler(encoding)
+
+	if compressHandler == nil {
+		return nil
+	}
+
+	compressedBody, err := compressHandler(res.Body)
+
+	if err != nil {
+		return err
+	}
+
+	res.Body = compressedBody
+	res.Headers["Content-Encoding"] = encoding
+
+	return nil
+}
+
 func (s *Server) sendResponse(conn *net.Conn, res *http.Response, req *http.Request) error {
 	if res.Headers == nil {
 		res.Headers = make(http.Headers, 2)
@@ -62,6 +88,12 @@ func (s *Server) sendResponse(conn *net.Conn, res *http.Response, req *http.Requ
 
 	if res.FilePath == "" {
 		res.Headers["Content-Length"] = strconv.Itoa(len(res.Body))
+	}
+
+	err = compressResponse(req, res)
+
+	if err != nil {
+		s.SendErr(500, map[string]string{"error": "failed to compress response"})
 	}
 
 	serRes, err := http.SerializeRes(*res)

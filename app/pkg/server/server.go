@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/codecrafters-io/http-server-starter-go/app/pkg/http"
 	"io"
@@ -20,16 +21,20 @@ type Server struct {
 	defaultHandler *Handler
 }
 
-func (s *Server) internalServerError(conn *net.Conn, req *http.Request, err error) error {
-	res := &http.Response{}
-	res.Code = 500
-	res.Body = []byte(err.Error())
-	res.Headers = make(http.Headers, 2)
-	res.Headers["Content-Type"] = "text/plain"
+func (s *Server) SendErr(statusCode int, errors map[string]string) *http.Response {
+	resBody, err := json.Marshal(errors)
 
-	err = s.sendResponse(conn, res, req)
+	if err != nil {
+		return &http.Response{
+			Code: 500,
+		}
+	}
 
-	return err
+	return &http.Response{
+		Code:    statusCode,
+		Body:    resBody,
+		Headers: http.Headers{"Content-Type": "application/json"},
+	}
 }
 
 func NewServer() *Server {
@@ -94,7 +99,7 @@ func (s *Server) handleConn(conn *net.Conn) {
 	err = s.sendResponse(conn, res, &req)
 
 	if err != nil {
-		_ = s.internalServerError(conn, &req, err)
+		_ = s.SendErr(500, map[string]string{"error": "internal server error failed send response"})
 	}
 }
 

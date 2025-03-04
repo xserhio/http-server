@@ -65,24 +65,8 @@ func main() {
 	s.RegisterHandler("/files/:fileName", "POST", func(req *http.Request) *http.Response {
 		fileName, ok := req.PathParams["fileName"]
 
-		sendErr := func(statusCode int, errors map[string]string) *http.Response {
-			resBody, err := json.Marshal(errors)
-
-			if err != nil {
-				return &http.Response{
-					Code: 500,
-				}
-			}
-
-			return &http.Response{
-				Code:    statusCode,
-				Body:    resBody,
-				Headers: http.Headers{"Content-Type": "application/json"},
-			}
-		}
-
 		if !ok {
-			return sendErr(400, map[string]string{
+			return s.SendErr(400, map[string]string{
 				"error": "fileName must be string",
 			})
 		}
@@ -96,13 +80,13 @@ func main() {
 		file, err := os.Create(filePath)
 
 		if err != nil {
-			return sendErr(500, map[string]string{"error": "failed to create file"})
+			return s.SendErr(500, map[string]string{"error": "failed to create file"})
 		}
 
 		_, err = file.Write(req.Body)
 
 		if err != nil {
-			return sendErr(500, map[string]string{"error": "failed to write to file"})
+			return s.SendErr(500, map[string]string{"error": "failed to write to file"})
 		}
 
 		return &http.Response{
